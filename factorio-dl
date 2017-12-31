@@ -63,7 +63,7 @@ while getopts ":dhc:l:p:o:" _opt; do
     c) FACTORIODL_CONFIG="$OPTARG" ;;
     l) FACTORIO_LOGIN="$OPTARG"    ;;
     p) FACTORIO_PASSWORD="$OPTARG" ;;
-    o) output_file="$OPTARG"        ;;
+    o) req_output_file="$OPTARG"   ;;
     *) __die "$(__usage)" 1        ;;
   esac
 done
@@ -79,7 +79,7 @@ if [ -z "$version" ]; then
 fi
 
 FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/linux64"
-output_file="factorio_alpha_x64_${version}.tar.xz"
+output_file="${req_output_file:-"factorio_alpha_x64_${version}.tar.xz"}"
 
 if [ -r "$FACTORIODL_CONFIG" ]; then
   . "$FACTORIODL_CONFIG"
