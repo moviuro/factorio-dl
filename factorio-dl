@@ -7,11 +7,11 @@
 
 FACTORIO_LOGIN="$(whoami)"
 FACTORIODL_CONFIG="$HOME/.config/factorio-dl.conf"
+FACTORIO_TARGET="linux64"
 
 __usage() {
   cat << EOH
-$0 [-d] [-o <output>] [-l login -p password] <version>
-$0 [-d] [-o <output>] [-c config] <version>
+$0 [-d] [-o <output>] [-c config] [-l login -p password] [-t target] <version>
 $0 -h
 
 $0 will download the factorio game from the Factorio website, with no
@@ -25,6 +25,15 @@ The first goal was to simplify the PKGBUILDs found on the AUR
 
 -d
   enable debug (set -x)
+
+-t
+  specify the target platform; output will be changed accordingly.
+  Known values:
+   - linux64
+   - osx
+   - win64
+   - win64-manual
+  By default: $FACTORIO_TARGET
 
 -o output
   specify output file. By default: factorio_alpha_x64_<version>.tar.xz
@@ -41,6 +50,7 @@ The first goal was to simplify the PKGBUILDs found on the AUR
   This file should contain 2 lines:
     FACTORIO_LOGIN="your login here"
     FACTORIO_PASSWORD="your password here"
+    #FACTORIO_TARGET="your target"
   default location: $FACTORIODL_CONFIG
 EOH
 }
@@ -54,10 +64,11 @@ __die() {
   echo "$1" >&2; exit "${2:-1}"
 }
 
-while getopts ":dhc:l:p:o:" _opt; do
+while getopts ":dhc:l:p:o:t:" _opt; do
   case "$_opt" in
     d) set -x                      ;;
     h) __usage; exit 0             ;;
+    t) FACTORIO_TARGET="$OPTARG"   ;;
     c) FACTORIODL_CONFIG="$OPTARG" ;;
     l) FACTORIO_LOGIN="$OPTARG"    ;;
     p) FACTORIO_PASSWORD="$OPTARG" ;;
@@ -76,8 +87,16 @@ if [ -z "$version" ]; then
   __die "$(__usage)" 2
 fi
 
+case "$FACTORIO_TARGET" in
+  linux64) def_output_file="factorio_alpha_x64_${version}.tar.xz" ;;
+  win64-manual) def_output_file="Factorio_x64_${version}.zip"     ;;
+  win64) def_output_file="Setup_Factorio_x64_${version}.exe"      ;;
+  osx) def_output_file="factorio_alpha_${version}.dmg"            ;;
+  *) __die "Unknown target platform: $FACTORIO_TARGET" 5          ;;
+esac
+
 FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/linux64"
-output_file="${req_output_file:-"factorio_alpha_x64_${version}.tar.xz"}"
+output_file="${req_output_file:-"$def_output_file"}"
 
 if [ -r "$FACTORIODL_CONFIG" ]; then
   . "$FACTORIODL_CONFIG"
