@@ -59,6 +59,8 @@ __cleanup() {
   [ -f "$cookie" ] && rm "$cookie"
 }
 
+trap __cleanup INT TERM
+
 __die() {
   __cleanup
   echo "$1" >&2; exit "${2:-1}"
