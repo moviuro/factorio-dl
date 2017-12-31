@@ -1,0 +1,132 @@
+#!/bin/sh
+
+# Inspired by the (complicated!) PKGBUILDs for factorio and
+# factorio-experimental on https://aur.archlinux.org
+
+# Ported to ~POSIX sh for fun (and *BSD compatibility)
+
+set -e
+
+FACTORIO_LOGIN="$(whoami)"
+FACTORIODL_CONFIG="$HOME/.config/factorio-dl.conf"
+
+__usage() {
+  cat << EOH
+$0 [-d] [-o <output>] [-l login -p password] <version>
+$0 [-d] [-o <output>] [-c config] <version>
+$0 -h
+
+$0 will download the factorio game from the Factorio website, with no
+interaction from the user.
+The first goal was to simplify the PKGBUILDs found on the AUR
+(ArchLinux-specific). Add the following line to your makepkg.conf(5) file:
+
+  DLAGENTS=([...]
++           'factorio::/usr/bin/factorio-dl -o %o %u'
+            [...])
+
+-d
+  enable debug (set -x)
+
+-o output
+  specify output file. By default: factorio_alpha_x64_<version>.tar.xz
+
+-l login -p password
+  specify login and password values to supply at https://factorio.com/login
+  FACTORIO_LOGIN default value: $FACTORIO_LOGIN
+  FACOTRIO_PASSWORD default value: <empty>
+
+-c configfile
+  specify the location of a file holding login and password.
+  It is a shell script that will be sourced, make sure it's not doing anything
+  bad.
+  This file should contain 2 lines:
+    FACTORIO_LOGIN="your login here"
+    FACTORIO_PASSWORD="your password here"
+  default location: $FACTORIODL_CONFIG
+EOH
+}
+
+__cleanup() {
+  [ -f "$cookie" ] && rm "$cookie"
+}
+
+__die() {
+  __cleanup
+  echo "$1" >&2; exit "${2:-1}"
+}
+
+while getopts ":dhc:l:p:o:" _opt; do
+  case "$_opt" in
+    d) set -x                      ;;
+    h) __usage; exit 0             ;;
+    c) FACTORIODL_CONFIG="$OPTARG" ;;
+    l) FACTORIO_LOGIN="$OPTARG"    ;;
+    p) FACTORIO_PASSWORD="$OPTARG" ;;
+    o) output_file="$OPTARG"        ;;
+    *) __die "$(__usage)" 1        ;;
+  esac
+done
+
+shift "$((OPTIND-1))"
+
+# We strip the first argument of anything that aren't numbers and dots
+# It's needed because makepkg(1) will pass 'protocol://version' as $1
+# Humans invoking the script can still use version alone as $1
+version="$(printf '%s\n' "$1" | grep -Eo '[0-9.]+')"
+if [ -z "$version" ]; then
+  __die "$(__usage)" 2
+fi
+
+FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/linux64"
+output_file="factorio_alpha_x64_${version}.tar.xz"
+
+if [ -r "$FACTORIODL_CONFIG" ]; then
+  . "$FACTORIODL_CONFIG"
+elif [ -z "$FACTORIO_PASSWORD" ]; then
+  __die "No password was set, aborting" 6
+fi
+
+cookie=$(mktemp)
+
+csrf_token=$(
+  curl --silent --fail \
+       --cookie-jar "$cookie" \
+       https://www.factorio.com/login |
+       grep -Eo '(<.*id="csrf_token" .*value=")[^"]+' |
+       grep -Eo '[^"]+$'
+  )
+
+if [ -z "$csrf_token" ]; then
+  __die "Could not find the CSRF token. This script might be broken." 7
+fi
+
+if curl --dump-header - \
+     --silent --fail \
+     --cookie-jar "$cookie" \
+     --cookie "$cookie" \
+     https://www.factorio.com/login \
+     --data-urlencode username_or_email="$FACTORIO_LOGIN" \
+     --data-urlencode password="$FACTORIO_PASSWORD" \
+     --data-urlencode csrf_token="$csrf_token" |
+     grep -q '^Location: '; then
+       :
+else
+  __die "Login failed" 8
+fi
+
+curl --retry 10 --retry-delay 3 \
+     --fail --location \
+     --cookie "${cookie}" \
+     --continue-at - \
+     --output "${output_file}.part" \
+     "${FACTORIO_URL}" \
+|| rm -f "${output_file}.part"
+
+if [ ! -f "${output_file}.part" ]; then
+  __die "Download failed" 9
+fi
+
+mv "${output_file}.part" "${output_file}"
+
+__cleanup
