@@ -5,8 +5,6 @@
 
 # Ported to ~POSIX sh for fun (and *BSD compatibility)
 
-set -e
-
 FACTORIO_LOGIN="$(whoami)"
 FACTORIODL_CONFIG="$HOME/.config/factorio-dl.conf"
 
