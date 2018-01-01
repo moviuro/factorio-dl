@@ -16,12 +16,6 @@ $0 -h
 
 $0 will download the factorio game from the Factorio website, with no
 interaction from the user.
-The first goal was to simplify the PKGBUILDs found on the AUR
-(ArchLinux-specific). Add the following line to your makepkg.conf(5) file:
-
-  DLAGENTS=([...]
-+           'factorio::/usr/bin/factorio-dl -o %o %u'
-            [...])
 
 -d
   enable debug (set -x)
