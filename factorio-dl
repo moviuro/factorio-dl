@@ -97,7 +97,7 @@ case "$FACTORIO_TARGET" in
   *) __die "Unknown target platform: $FACTORIO_TARGET" 5          ;;
 esac
 
-FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/linux64"
+FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/${FACTORIO_TARGET}"
 output_file="${req_output_file:-"$def_output_file"}"
 
 if [ -r "$FACTORIODL_CONFIG" ]; then
