@@ -140,6 +140,8 @@ if [ ! -f "${output_file}.part" ]; then
   __die "Download failed" 9
 fi
 
-mv "${output_file}.part" "${output_file}"
+if [ -f "${output_file}.part" ]; then
+  mv "${output_file}.part" "${output_file}"
+fi
 
 __cleanup
