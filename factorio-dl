@@ -85,7 +85,7 @@ shift "$((OPTIND-1))"
 # Humans invoking the script can still use version alone as $1
 version="$(printf '%s\n' "$1" | grep -Eo '[0-9.]+')"
 if [ -z "$version" ]; then
-  __die "$(__usage)" 2
+  __die "No version to download. See $0 -h" 2
 fi
 
 case "$FACTORIO_TARGET" in
