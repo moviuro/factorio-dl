@@ -11,7 +11,7 @@ FACTORIO_TARGET="linux64"
 
 __usage() {
   cat << EOH
-$0 [-d] [-o <output>] [-c config] [-l login -p password] [-t target] <version>
+$0 [-di] [-o <output>] [-c config] [-l login -p password] [-t target] <version>
 $0 -h
 
 $0 will download the factorio game from the Factorio website, with no
@@ -19,6 +19,10 @@ interaction from the user.
 
 -d
   enable debug (set -x)
+
+-i
+  interactive
+  if enabled, we might require some human interaction; it is not the default
 
 -t
   specify the target platform; output will be changed accordingly.
@@ -60,10 +64,11 @@ __die() {
   echo "$1" >&2; exit "${2:-1}"
 }
 
-while getopts ":dhc:l:p:o:t:" _opt; do
+while getopts ":dhic:l:p:o:t:" _opt; do
   case "$_opt" in
     d) set -x                      ;;
     h) __usage; exit 0             ;;
+    i) _interactive="1"            ;;
     t) FACTORIO_TARGET="$OPTARG"   ;;
     c) FACTORIODL_CONFIG="$OPTARG" ;;
     l) FACTORIO_LOGIN="$OPTARG"    ;;
@@ -97,7 +102,16 @@ output_file="${req_output_file:-"$def_output_file"}"
 if [ -r "$FACTORIODL_CONFIG" ]; then
   . "$FACTORIODL_CONFIG"
 elif [ -z "$FACTORIO_PASSWORD" ]; then
-  __die "No password was set, aborting" 6
+  if [ -z "$_interactive" ]; then
+    __die "No password was set, aborting" 6
+  else
+    # We write a ~POSIX-compliant script; `read -s` doesn't work on e.g. FreeBSD
+    stty -echo
+    printf "Password: "
+    read FACTORIO_PASSWORD
+    stty echo
+    printf '\n'
+  fi
 fi
 
 cookie=$(mktemp)
