@@ -73,7 +73,7 @@ while getopts ":dhic:l:p:o:t:" _opt; do
     c) FACTORIODL_CONFIG="$OPTARG" ;;
     l) FACTORIO_LOGIN="$OPTARG"    ;;
     p) FACTORIO_PASSWORD="$OPTARG" ;;
-    o) req_output_file="$OPTARG"   ;;
+    o) output_file="$OPTARG"       ;;
     *) __die "$(__usage)" 1        ;;
   esac
 done
@@ -88,16 +88,17 @@ if [ -z "$version" ]; then
   __die "No version to download. See $0 -h" 2
 fi
 
-case "$FACTORIO_TARGET" in
-  linux64) def_output_file="factorio_alpha_x64_${version}.tar.xz" ;;
-  win64-manual) def_output_file="Factorio_x64_${version}.zip"     ;;
-  win64) def_output_file="Setup_Factorio_x64_${version}.exe"      ;;
-  osx) def_output_file="factorio_alpha_${version}.dmg"            ;;
-  *) __die "Unknown target platform: $FACTORIO_TARGET" 5          ;;
-esac
+if [ -z "$output_file" ]; then
+  case "$FACTORIO_TARGET" in
+    linux64) output_file="factorio_alpha_x64_${version}.tar.xz" ;;
+    win64-manual) output_file="Factorio_x64_${version}.zip"     ;;
+    win64) output_file="Setup_Factorio_x64_${version}.exe"      ;;
+    osx) output_file="factorio_alpha_${version}.dmg"            ;;
+    *) __die "Unknown target platform: $FACTORIO_TARGET" 5      ;;
+  esac
+fi
 
 FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/${FACTORIO_TARGET}"
-output_file="${req_output_file:-"$def_output_file"}"
 
 if [ -r "$FACTORIODL_CONFIG" ]; then
   . "$FACTORIODL_CONFIG"
