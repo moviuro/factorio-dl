@@ -108,7 +108,7 @@ elif [ -z "$FACTORIO_PASSWORD" ]; then
     # We write a ~POSIX-compliant script; `read -s` doesn't work on e.g. FreeBSD
     stty -echo
     printf "Password: "
-    read FACTORIO_PASSWORD
+    read -r FACTORIO_PASSWORD
     stty echo
     printf '\n'
   fi
