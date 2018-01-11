@@ -5,9 +5,9 @@
 
 # Ported to ~POSIX sh for fun (and *BSD compatibility)
 
-FACTORIO_LOGIN="$(whoami)"
-FACTORIODL_CONFIG="$HOME/.config/factorio-dl.conf"
-FACTORIO_TARGET="linux64"
+: "${FACTORIO_LOGIN:="$(whoami)"}"
+: "${FACTORIODL_CONFIG:="$HOME/.config/factorio-dl.conf"}"
+: "${FACTORIO_TARGET:="linux64"}"
 
 __usage() {
   cat << EOH
