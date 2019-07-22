@@ -11,7 +11,7 @@
 
 __usage() {
   cat << EOH
-$0 [-di] [-o <output>] [-c config] [-l login -p password] [-t target] <version>
+$0 [-di] [-o <output>] [-c config] [-l login -p password] [-t target] [version]
 $0 -h
 
 $0 will download the factorio game from the Factorio website, with no
@@ -50,6 +50,14 @@ interaction from the user.
     FACTORIO_PASSWORD="your password here"
     #FACTORIO_TARGET="your target"
   default location: $FACTORIODL_CONFIG
+
+version
+  either:
+    - a number such as 0.16.51 or 0.17.58;
+    - experimental (the default)*
+    - stable*
+  *version grabbing from the factorio.com website is quite hacky, and requires
+   xmllint(1); it is recommended to pass a version number
 EOH
 }
 
@@ -58,6 +66,10 @@ __cleanup() {
 }
 
 trap __cleanup INT TERM
+
+__warn() {
+  echo "$1" >&2
+}
 
 __die() {
   __cleanup
@@ -83,9 +95,33 @@ shift "$((OPTIND-1))"
 # We strip the first argument of anything that aren't numbers and dots
 # It's needed because makepkg(1) will pass 'protocol://version' as $1
 # Humans invoking the script can still use version alone as $1
-version="$(printf '%s\n' "$1" | grep -Eo '[0-9.]+')"
+version="${1#"factorio://"}"
+case "$version" in
+  ""|experimental)
+    if command -v xmllint >/dev/null 2>&1; then
+      __warn "Trying xmllint(1) for experimental, might be broken"
+      version="$(curl -s "https://factorio.com" |
+                 xmllint --html --xpath \
+                 '/html/body/div[2]/div/div[1]/div[1]/div[2]/dl/dd[2]/text()' \
+                 - 2>/dev/null)"
+      __warn "Got $version"
+    fi
+    ;;
+  stable)
+    if command -v xmllint >/dev/null 2>&1; then
+      __warn "Trying xmllint(1) for stable, might be broken"
+      version="$(curl -s "https://factorio.com" |
+                 xmllint --html --xpath \
+                 '/html/body/div[2]/div/div[1]/div[1]/div[2]/dl/dd[1]/text()' \
+                 - 2>/dev/null)"
+      __warn "Got $version"
+    fi
+    ;;
+esac
 if [ -z "$version" ]; then
   __die "No version to download. See $0 -h" 2
+elif ! printf '%s' "$version" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
+  __die "version looks very weird: $version" 3
 fi
 
 if [ -z "$output_file" ]; then
