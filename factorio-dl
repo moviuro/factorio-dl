@@ -56,8 +56,9 @@ version
     - a number such as 0.16.51 or 0.17.58;
     - experimental (the default)*
     - stable*
-  *version grabbing from the factorio.com website is quite hacky, and requires
-   xmllint(1); it is recommended to pass a version number
+  *version grabbing from the updater.factorio.com API is not officially
+   documented, and requires a valid token, as well as jq(1); it is recommended
+   to pass a version number
 EOH
 }
 
@@ -92,28 +93,38 @@ done
 
 shift "$((OPTIND-1))"
 
+# Grab the token
+if [ -r ~/.factorio/player-data.json ]; then
+  FACTORIO_TOKEN="$(jq -r '.["service-token"]' < ~/.factorio/player-data.json)"
+  if [ "$FACTORIO_TOKEN" = "null" ]; then
+    unset FACTORIO_TOKEN
+  fi
+fi
+
 # We strip the first argument of anything that aren't numbers and dots
 # It's needed because makepkg(1) will pass 'protocol://version' as $1
 # Humans invoking the script can still use version alone as $1
 version="${1#"factorio://"}"
+_up_url="https://updater.factorio.com/get-available-versions"
 case "$version" in
   ""|experimental)
-    if command -v xmllint >/dev/null 2>&1; then
-      __warn "Trying xmllint(1) for experimental, might be broken"
-      version="$(curl -s "https://factorio.com" |
-                 xmllint --html --xpath \
-                 '/html/body/div[2]/div/div[1]/div[1]/div[2]/dl/dd[2]/text()' \
-                 - 2>/dev/null)"
+    if [ -n "$FACTORIO_TOKEN" ]; then
+      __warn "Trying updater.factorio.com for experimental, might be broken"
+      version="$(curl -s \
+       "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
+       jq -rc '."core-linux64"[]."to" | if . == null then empty else . end' |
+       sort -n | tail -1
+      )"
       __warn "Got $version"
     fi
     ;;
   stable)
-    if command -v xmllint >/dev/null 2>&1; then
-      __warn "Trying xmllint(1) for stable, might be broken"
-      version="$(curl -s "https://factorio.com" |
-                 xmllint --html --xpath \
-                 '/html/body/div[2]/div/div[1]/div[1]/div[2]/dl/dd[1]/text()' \
-                 - 2>/dev/null)"
+    if [ -n "$FACTORIO_TOKEN" ]; then
+      __warn "Trying updater.factorio.com for stable, might be broken"
+      version="$(curl -s \
+       "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
+       jq -rc '."core-linux64"[]?."stable" | if . == null then empty else . end'
+      )"
       __warn "Got $version"
     fi
     ;;
