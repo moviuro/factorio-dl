@@ -34,7 +34,11 @@ interaction from the user.
   By default: $FACTORIO_TARGET
 
 -o output
-  specify output file. By default: factorio_alpha_x64_<version>.tar.xz
+  specify output file. Depending on the target:
+   - factorio_alpha_x64_<version>.tar.xz
+   - factorio_alpha_<version>.dmg
+   - Setup_Factorio_x64_<version>.exe
+   - Factorio_x64_<version>.zip
 
 -l login -p password
   specify login and password values to supply at https://factorio.com/login
@@ -48,6 +52,7 @@ interaction from the user.
   This file should contain 2 lines:
     FACTORIO_LOGIN="your login here"
     FACTORIO_PASSWORD="your password here"
+    #FACTORIO_PASSWORD="\$(pass show games/factorio | head -n1)"
     #FACTORIO_TARGET="your target"
   default location: $FACTORIODL_CONFIG
 
@@ -56,6 +61,11 @@ version
     - a number such as 0.16.51 or 0.17.58;
     - experimental (the default)*
     - stable*
+  $0 supports the factorio:// prefix. This is meant to ease integration into
+  build scripts, such as PKGBUILD(5) on Archlinux. As such, the following
+  commands are equivalent:
+    % $0 0.16.51
+    % $0 factorio://0.16.51
   *version grabbing from the updater.factorio.com API is not officially
    documented, and requires a valid token, as well as jq(1); it is recommended
    to pass a version number
