@@ -155,7 +155,7 @@ case "$version" in
       version="$(curl -s \
        "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
        jq -rc '."core-linux64"[]."to" | if . == null then empty else . end' |
-       sort -n | tail -1
+       sort -V | tail -1
       )"
       __warn "Got $version"
     fi
