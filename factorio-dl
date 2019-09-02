@@ -4,14 +4,15 @@
 # factorio-experimental on https://aur.archlinux.org
 
 # Ported to ~POSIX sh for fun (and *BSD compatibility)
+# Depends on jq(1) and curl(1)
 
-: "${FACTORIO_LOGIN:="$(whoami)"}"
-: "${FACTORIODL_CONFIG:="$HOME/.config/factorio-dl.conf"}"
 : "${FACTORIO_TARGET:="linux64"}"
+: "${FACTORIO_PD:="$HOME/.factorio/player-data.json"}"
 
 __usage() {
   cat << EOH
-$0 [-di] [-o <output>] [-c config] [-l login -p password] [-t target] [version]
+$0 [-di] [-o <output>] [-y /path/player-data.json] [-t target] [version]
+$0 [-di] [-o <output>] [-l login -p password] [-t target] [version]
 $0 -h
 
 $0 will download the factorio game from the Factorio website, with no
@@ -34,7 +35,8 @@ interaction from the user.
   By default: $FACTORIO_TARGET
 
 -o output
-  specify output file. Depending on the target:
+  specify output file.
+  Default value, depending on the target:
    - factorio_alpha_x64_<version>.tar.xz
    - factorio_alpha_<version>.dmg
    - Setup_Factorio_x64_<version>.exe
@@ -42,19 +44,16 @@ interaction from the user.
 
 -l login -p password
   specify login and password values to supply at https://factorio.com/login
-  FACTORIO_LOGIN default value: $FACTORIO_LOGIN
-  FACOTRIO_PASSWORD default value: <empty>
+  FACTORIO_LOGIN default value: $(whoami)
+  FACTORIO_PASSWORD default value: <empty>
+  NB: your shell logs input! Use an empty space in front of $0 if you use -p
+  See also: \$HISTCONTROL, your shell's manual...
 
--c configfile
-  specify the location of a file holding login and password.
-  It is a shell script that will be sourced, make sure it's not doing anything
-  bad.
-  This file should contain 2 lines:
-    FACTORIO_LOGIN="your login here"
-    FACTORIO_PASSWORD="your password here"
-    #FACTORIO_PASSWORD="\$(pass show games/factorio | head -n1)"
-    #FACTORIO_TARGET="your target"
-  default location: $FACTORIODL_CONFIG
+-y /path/player-data.json
+  alternatively to using login and password, or even the \$FACTORIO_PASSWORD env
+  variable, $0 can use the player-data.json file which holds a valid token as
+  well as a factorio username
+  FACTORIO_PD default value: $FACTORIO_PD
 
 version
   either:
@@ -67,51 +66,78 @@ version
     % $0 0.16.51
     % $0 factorio://0.16.51
   *version grabbing from the updater.factorio.com API is not officially
-   documented, and requires a valid token, as well as jq(1); it is recommended
-   to pass a version number
+   documented, it is recommended to pass a version number
 EOH
 }
-
-__cleanup() {
-  [ -f "$cookie" ] && rm "$cookie"
-}
-
-trap __cleanup INT TERM
 
 __warn() {
   echo "$1" >&2
 }
 
 __die() {
-  __cleanup
   echo "$1" >&2; exit "${2:-1}"
 }
 
-while getopts ":dhic:l:p:o:t:" _opt; do
+while getopts ":dhil:p:o:t:y:" _opt; do
   case "$_opt" in
     d) set -x                      ;;
     h) __usage; exit 0             ;;
     i) _interactive="1"            ;;
     t) FACTORIO_TARGET="$OPTARG"   ;;
-    c) FACTORIODL_CONFIG="$OPTARG" ;;
     l) FACTORIO_LOGIN="$OPTARG"    ;;
     p) FACTORIO_PASSWORD="$OPTARG" ;;
     o) output_file="$OPTARG"       ;;
+    y) FACTORIO_PD="$OPTARG"       ;;
     *) __die "$(__usage)" 1        ;;
   esac
 done
 
 shift "$((OPTIND-1))"
 
-# Grab the token
-if [ -r ~/.factorio/player-data.json ]; then
-  FACTORIO_TOKEN="$(jq -r '.["service-token"]' < ~/.factorio/player-data.json)"
+# Grab the username and token from the player-data.json file
+if [ -r "$FACTORIO_PD" ]; then
+  FACTORIO_TOKEN="$(jq -r '.["service-token"]' < "$FACTORIO_PD")"
+  if [ -z "$FACTORIO_LOGIN" ]; then
+    _login_from_pd="$(jq -r '.["service-username"]' < "$FACTORIO_PD")"
+    if ! [ "$_login_from_pd" = "null" ]; then
+      FACTORIO_LOGIN="$_login_from_pd"
+    fi
+  fi
   if [ "$FACTORIO_TOKEN" = "null" ]; then
     unset FACTORIO_TOKEN
   fi
 fi
+if [ -z "$FACTORIO_LOGIN" ]; then
+  FACTORIO_LOGIN="$(whoami)"
+fi
 
-# We strip the first argument of anything that aren't numbers and dots
+# If we didn't get the token from the player-data file, we try to get one from
+# the factorio-dl config file or from the factorio auth API
+if [ -z "$FACTORIO_TOKEN" ]; then
+  __warn "No token in $FACTORIO_PD"
+  if [ -z "$FACTORIO_PASSWORD" ]; then
+    if [ -z "$_interactive" ]; then
+      __die "No password was set, aborting" 6
+    else
+      # We write a ~POSIX-compliant script; `read -s` doesn't work on e.g. FreeBSD
+      stty -echo
+      printf "Password: "
+      read -r FACTORIO_PASSWORD
+      stty echo
+      printf '\n'
+    fi
+  fi
+  _auth_url="https://auth.factorio.com/api-login?require_game_ownership=true"
+  __warn "Trying to get one from $_auth_url"
+  FACTORIO_TOKEN="$(curl --silent --fail -XPOST \
+   "${_auth_url}&username=$FACTORIO_LOGIN&password=$FACTORIO_PASSWORD" |
+   jq -rc '.[]')"
+  if [ -z "$FACTORIO_TOKEN" ]; then
+    __die "Didn't get a token using $FACTORIO_LOGIN and password" 7
+  fi
+fi
+
+# We strip the "factorio://" prefix of the argument.
 # It's needed because makepkg(1) will pass 'protocol://version' as $1
 # Humans invoking the script can still use version alone as $1
 version="${1#"factorio://"}"
@@ -139,9 +165,9 @@ case "$version" in
     fi
     ;;
 esac
-if [ -z "$version" ]; then
-  __die "No version to download. See $0 -h" 2
-elif ! printf '%s' "$version" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
+# Whatever happened above, $version should now hold a semantic version.
+# If grep(1) fails below, we abort.
+if ! printf '%s' "$version" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
   __die "version looks very weird: $version" 3
 fi
 
@@ -157,53 +183,11 @@ fi
 
 FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/${FACTORIO_TARGET}"
 
-if [ -r "$FACTORIODL_CONFIG" ]; then
-  . "$FACTORIODL_CONFIG"
-elif [ -z "$FACTORIO_PASSWORD" ]; then
-  if [ -z "$_interactive" ]; then
-    __die "No password was set, aborting" 6
-  else
-    # We write a ~POSIX-compliant script; `read -s` doesn't work on e.g. FreeBSD
-    stty -echo
-    printf "Password: "
-    read -r FACTORIO_PASSWORD
-    stty echo
-    printf '\n'
-  fi
-fi
-
-cookie=$(mktemp)
-
-csrf_token=$(
-  curl --silent --fail \
-       --cookie-jar "$cookie" \
-       https://www.factorio.com/login |
-       grep -Eo '(<.*id="csrf_token" .*value=")[^"]+' |
-       grep -Eo '[^"]+$'
-  )
-
-if [ -z "$csrf_token" ]; then
-  __die "Could not find the CSRF token. This script might be broken." 7
-fi
-
-if curl --dump-header - \
-     --silent --fail \
-     --cookie-jar "$cookie" \
-     --cookie "$cookie" \
-     https://www.factorio.com/login \
-     --data-urlencode username_or_email="$FACTORIO_LOGIN" \
-     --data-urlencode password="$FACTORIO_PASSWORD" \
-     --data-urlencode csrf_token="$csrf_token" |
-     grep -q '^Location: '; then
-       :
-else
-  __die "Login failed" 8
-fi
-
-curl --retry 10 --retry-delay 3 \
+curl -G --retry 10 --retry-delay 3 \
      --fail --location \
-     --cookie "${cookie}" \
      --continue-at - \
+     --data-urlencode "username=${FACTORIO_LOGIN}" \
+     --data-urlencode "token=${FACTORIO_TOKEN}" \
      --output "${output_file}.part" \
      "${FACTORIO_URL}" \
 || rm -f "${output_file}.part"
@@ -216,4 +200,3 @@ if [ -f "${output_file}.part" ]; then
   mv "${output_file}.part" "${output_file}"
 fi
 
-__cleanup
