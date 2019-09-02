@@ -94,6 +94,12 @@ done
 
 shift "$((OPTIND-1))"
 
+for _dep in curl jq; do
+  if ! command -v "$_dep" >/dev/null 2>&1; then
+    __die "$_dep needed but not found!" 2
+  fi
+done
+
 # Grab the username and token from the player-data.json file
 if [ -r "$FACTORIO_PD" ]; then
   FACTORIO_TOKEN="$(jq -r '.["service-token"]' < "$FACTORIO_PD")"
