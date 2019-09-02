@@ -6,29 +6,16 @@ This (more-or-less) POSIX-compliant shell script will download the specified
 Factorio version for a target platform.
 
     % ./factorio-dl -l login -p password -t linux64 0.16.12
-    % ./factorio-dl -l login -p password -t osx 0.15.40
+    % ./factorio-dl -il login -t osx 0.15.40
 
 ## Configuration
 
-### Simple
+This shell script will use your `player-data.json` file if it exists. On Linux,
+you probably don't need to do anything. On macOS, specify a path to that file
+with `-y`.
 
-This shell script will **source** the `~/.config/factorio-dl.conf` file if it
-exists. This file is a shell script, and it should hold 1-3 lines at most:
-
-    FACTORIO_TARGET="your target" # if unspecified, defaults to linux64
-    FACTORIO_LOGIN="your login here" # if unspecified, defaults to $(whoami)
-    FACTORIO_PASSWORD="your password here"
-
-If the configuration file contains a password, the following command should
-work:
-
-    % ./factorio-dl -t win64 0.16.12
-
-### "Secure"
-
-You can run shell commands in the config file (`~/.config/factorio-dl.conf`):
-
-    FACTORIO_PASSWORD="$(pass show games/factorio | head -n1)"
+If `player-data.json` file does not exist or does not contain the necessary
+data, try `-il YOUR_LOGIN`.
 
 ## Archlinux-specific
 
