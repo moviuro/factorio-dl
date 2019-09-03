@@ -150,25 +150,20 @@ version="${1#"factorio://"}"
 _up_url="https://updater.factorio.com/get-available-versions"
 case "$version" in
   ""|experimental)
-    if [ -n "$FACTORIO_TOKEN" ]; then
-      __warn "Trying updater.factorio.com for experimental, might be broken"
-      version="$(curl -s \
-       "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
-       jq -rc '."core-linux64"[]."to" | if . == null then empty else . end' |
-       sort -V | tail -1
-      )"
-      __warn "Got $version"
-    fi
+    __warn "Trying updater.factorio.com for experimental, might be broken"
+    version="$(curl -s \
+     "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
+     jq -rc '."core-linux64"[]."to" | if . == null then empty else . end' |
+     sort -V | tail -1
+    )"
+    __warn "Got $version"
     ;;
   stable)
-    if [ -n "$FACTORIO_TOKEN" ]; then
-      __warn "Trying updater.factorio.com for stable, might be broken"
-      version="$(curl -s \
-       "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
-       jq -rc '."core-linux64"[]?."stable" | if . == null then empty else . end'
-      )"
-      __warn "Got $version"
-    fi
+    __warn "Trying updater.factorio.com for stable, might be broken"
+    version="$(curl -s \
+     "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
+     jq -rc '."core-linux64"[]?."stable" | if . == null then empty else . end')"
+    __warn "Got $version"
     ;;
 esac
 # Whatever happened above, $version should now hold a semantic version.
