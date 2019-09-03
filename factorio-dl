@@ -177,15 +177,13 @@ if ! printf '%s' "$version" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
   __die "version looks very weird: $version" 3
 fi
 
-if [ -z "$output_file" ]; then
-  case "$FACTORIO_TARGET" in
-    linux64) output_file="factorio_alpha_x64_${version}.tar.xz" ;;
-    win64-manual) output_file="Factorio_x64_${version}.zip"     ;;
-    win64) output_file="Setup_Factorio_x64_${version}.exe"      ;;
-    osx) output_file="factorio_alpha_${version}.dmg"            ;;
-    *) __die "Unknown target platform: $FACTORIO_TARGET" 5      ;;
-  esac
-fi
+case "$FACTORIO_TARGET" in
+  linux64) : "${output_file:="factorio_alpha_x64_${version}.tar.xz"}" ;;
+  win64-manual) : "${output_file:="Factorio_x64_${version}.zip"}"     ;;
+  win64) : "${output_file:="Setup_Factorio_x64_${version}.exe"}"      ;;
+  osx) : "${output_file:="factorio_alpha_${version}.dmg"}"            ;;
+  *) __die "Unknown target platform: $FACTORIO_TARGET" 5              ;;
+esac
 
 FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/${FACTORIO_TARGET}"
 
