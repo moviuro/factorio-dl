@@ -6,9 +6,6 @@
 # Ported to ~POSIX sh for fun (and *BSD compatibility)
 # Depends on jq(1) and curl(1)
 
-: "${FACTORIO_TARGET:="linux64"}"
-: "${FACTORIO_PD:="$HOME/.factorio/player-data.json"}"
-
 __usage() {
   cat << EOH
 $0 [-di] [-o <output>] [-y /path/player-data.json] [-t target] [version]
@@ -32,7 +29,7 @@ interaction from the user.
    - osx
    - win64
    - win64-manual
-  By default: $FACTORIO_TARGET
+  By default: depends on your current platform
 
 -o output
   specify output file.
@@ -53,7 +50,10 @@ interaction from the user.
   alternatively to using login and password, or even the \$FACTORIO_PASSWORD env
   variable, $0 can use the player-data.json file which holds a valid token as
   well as a factorio username
-  FACTORIO_PD default value: $FACTORIO_PD
+  FACTORIO_PD default value: depends on your current platform
+   - $HOME/.factorio/player-data.json on Linux and assimilate
+   - $HOME/Library/Application Support/factorio/player-data.json on macOS
+   - %HOMEDRIVE%%HOMEPATH%/AppData/Roaming/Factorio/player-data.json on WSL
 
 version
   either:
@@ -99,6 +99,21 @@ for _dep in curl jq; do
     __die "$_dep needed but not found!" 2
   fi
 done
+
+# Set default values for target and player-data file if they weren't supplied
+if [ "$(uname -s)" = "Darwin" ]; then
+  : "${FACTORIO_TARGET:="osx"}"
+  : "${FACTORIO_PD:="$HOME/Library/Application Support/factorio/player-data.json"}"
+elif uname -a | grep -q 'Microsoft'; then
+  : "${FACTORIO_TARGET:="win64"}"
+  if [ -z "$FACTORIO_PD" ]; then
+    FACTORIO_PD="$(cmd.exe /c 'echo %HOMEDRIVE%%HOMEPATH%' | tr -d '\r' |
+     tr \\ /)/AppData/Roaming/Factorio/player-data.json"
+  fi
+else # Even on BSD and whatnot
+  : "${FACTORIO_TARGET:="linux64"}"
+  : "${FACTORIO_PD:="$HOME/.factorio/player-data.json"}"
+fi
 
 # Grab the username and token from the player-data.json file
 if [ -r "$FACTORIO_PD" ]; then
