@@ -102,15 +102,11 @@ done
 
 # Grab the username and token from the player-data.json file
 if [ -r "$FACTORIO_PD" ]; then
-  FACTORIO_TOKEN="$(jq -r '.["service-token"]' < "$FACTORIO_PD")"
+  FACTORIO_TOKEN="$(jq -r '.["service-token"] | select (.!=null)' < \
+   "$FACTORIO_PD")"
   if [ -z "$FACTORIO_LOGIN" ]; then
-    _login_from_pd="$(jq -r '.["service-username"]' < "$FACTORIO_PD")"
-    if ! [ "$_login_from_pd" = "null" ]; then
-      FACTORIO_LOGIN="$_login_from_pd"
-    fi
-  fi
-  if [ "$FACTORIO_TOKEN" = "null" ]; then
-    unset FACTORIO_TOKEN
+    FACTORIO_LOGIN="$(jq -r '.["service-username"] | select (.!=null)' < \
+     "$FACTORIO_PD")"
   fi
 fi
 if [ -z "$FACTORIO_LOGIN" ]; then
@@ -153,7 +149,7 @@ case "$version" in
     __warn "Trying updater.factorio.com for experimental, might be broken"
     version="$(curl -s \
      "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
-     jq -rc '."core-linux64"[]."to" | if . == null then empty else . end' |
+     jq -rc '."core-linux64"[]."to" | select (.!=null)' |
      sort -V | tail -1
     )"
     __warn "Got $version"
@@ -162,7 +158,7 @@ case "$version" in
     __warn "Trying updater.factorio.com for stable, might be broken"
     version="$(curl -s \
      "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
-     jq -rc '."core-linux64"[]?."stable" | if . == null then empty else . end')"
+     jq -rc '."core-linux64"[]?."stable" | select (.!=null)')"
     __warn "Got $version"
     ;;
 esac
