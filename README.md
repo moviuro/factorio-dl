@@ -10,12 +10,14 @@ Factorio version for a target platform.
 
 ## Configuration
 
-This shell script will use your `player-data.json` file if it exists. On Linux,
-you probably don't need to do anything. On macOS, specify a path to that file
-with `-y`.
+This shell script will use your `player-data.json` file if it exists. On Linux
+or macOS, you probably don't need to do anything. On WSL, specify a path to that
+file with `-y` if the default behavior doesn't cut it.
 
 If `player-data.json` file does not exist or does not contain the necessary
 data, try `-il YOUR_LOGIN`.
+
+See `factorio-dl -h` for more help.
 
 ## Archlinux-specific
 
