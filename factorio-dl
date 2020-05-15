@@ -158,22 +158,20 @@ fi
 # It's needed because makepkg(1) will pass 'protocol://version' as $1
 # Humans invoking the script can still use version alone as $1
 version="${1#"factorio://"}"
-_up_url="https://updater.factorio.com/get-available-versions"
+_latest_json="https://factorio.com/api/latest-releases"
 case "$version" in
   ""|experimental)
-    __warn "Trying updater.factorio.com for experimental, might be broken"
-    version="$(curl -s \
-     "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
-     jq -rc '."core-linux64"[]."to" | select (.!=null)' |
-     sort -V | tail -1
+    __warn "Trying $_latest_json for experimental, might be broken"
+    version="$(curl -s "${_latest_json}" |
+     jq -rc '.experimental.alpha'
     )"
     __warn "Got $version"
     ;;
   stable)
-    __warn "Trying updater.factorio.com for stable, might be broken"
-    version="$(curl -s \
-     "${_up_url}?username=${FACTORIO_LOGIN}&token=${FACTORIO_TOKEN}" |
-     jq -rc '."core-linux64"[]?."stable" | select (.!=null)')"
+    __warn "Trying $_latest_json for stable, might be broken"
+    version="$(curl -s "${_latest_json}" |
+     jq -rc '.stable.alpha'
+    )"
     __warn "Got $version"
     ;;
 esac
