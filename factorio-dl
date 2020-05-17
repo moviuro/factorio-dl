@@ -55,6 +55,9 @@ interaction from the user.
    - $HOME/Library/Application Support/factorio/player-data.json on macOS
    - %HOMEDRIVE%%HOMEPATH%/AppData/Roaming/Factorio/player-data.json on WSL
 
+-h
+  Display this help text.
+
 version
   either:
     - a number such as 0.16.51 or 0.17.58;
