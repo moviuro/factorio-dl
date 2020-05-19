@@ -8,8 +8,8 @@
 
 __usage() {
   cat << EOH
-$0 [-di] [-o <output>] [-y /path/player-data.json] [-t target] [version]
-$0 [-di] [-o <output>] [-l login -p password] [-t target] [version]
+$0 [-di] [-b build] [-o <output>] [-y /path/player-data.json] [-t target] [version]
+$0 [-di] [-b build] [-o <output>] [-l login -p password] [-t target] [version]
 $0 -h
 
 $0 will download the factorio game from the Factorio website, with no
@@ -34,10 +34,10 @@ interaction from the user.
 -o output
   specify output file.
   Default value, depending on the target:
-   - factorio_alpha_x64_<version>.tar.xz
-   - factorio_alpha_<version>.dmg
-   - Setup_Factorio_x64_<version>.exe
-   - Factorio_x64_<version>.zip
+   - factorio_<build>_<version>.tar.xz
+   - factorio_<build>_<version>.dmg
+   - Setup_Factorio(Demo)?_x64_<version>.exe
+   - Factorio(Demo)?_x64_<version>.zip
 
 -l login -p password
   specify login and password values to supply at https://factorio.com/login
@@ -57,6 +57,15 @@ interaction from the user.
 
 -h
   Display this help text.
+
+-b build
+  There are three builds:
+   - alpha (the default), which requires a valid login+password or player data
+     file, the current standard full-featured build
+   - demo, which is free as in free beer, publicly accessible demo versions
+     (stable versions only)
+   - headless, which is free as in free beer, for running servers on machines
+     without graphical interface (linux64 version only, see -t)
 
 version
   either:
@@ -81,8 +90,9 @@ __die() {
   echo "$1" >&2; exit "${2:-1}"
 }
 
-while getopts ":dhil:p:o:t:y:" _opt; do
+while getopts ":b:dhil:p:o:t:y:" _opt; do
   case "$_opt" in
+    b) FACTORIO_BUILD="$OPTARG"    ;;
     d) set -x                      ;;
     h) __usage; exit 0             ;;
     i) _interactive="1"            ;;
@@ -118,6 +128,13 @@ else # Even on BSD and whatnot
   : "${FACTORIO_PD:="$HOME/.factorio/player-data.json"}"
 fi
 
+# Set the default build type
+: "${FACTORIO_BUILD:="alpha"}"
+case "$FACTORIO_BUILD" in
+  alpha|demo|headless) : ;;
+  *) __die "Supported builds: alpha, demo, headless; not $FACTORIO_BUILD" 4;;
+esac
+
 # Grab the username and token from the player-data.json file
 if [ -r "$FACTORIO_PD" ]; then
   FACTORIO_TOKEN="$(jq -r '.["service-token"] | select (.!=null)' < \
@@ -133,7 +150,8 @@ fi
 
 # If we didn't get the token from the player-data file, we try to get one from
 # the factorio-dl config file or from the factorio auth API
-if [ -z "$FACTORIO_TOKEN" ]; then
+# This is only needed for the alpha version
+if [ -z "$FACTORIO_TOKEN" ] && [ "${FACTORIO_BUILD}" = "alpha" ]; then
   __warn "No token in $FACTORIO_PD"
   if [ -z "$FACTORIO_PASSWORD" ]; then
     if [ -z "$_interactive" ]; then
@@ -185,14 +203,30 @@ if ! printf '%s' "$version" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
 fi
 
 case "$FACTORIO_TARGET" in
-  linux64) : "${output_file:="factorio_alpha_x64_${version}.tar.xz"}" ;;
-  win64-manual) : "${output_file:="Factorio_x64_${version}.zip"}"     ;;
-  win64) : "${output_file:="Setup_Factorio_x64_${version}.exe"}"      ;;
-  osx) : "${output_file:="factorio_alpha_${version}.dmg"}"            ;;
-  *) __die "Unknown target platform: $FACTORIO_TARGET" 5              ;;
+  linux64)
+    : "${output_file:="factorio_${FACTORIO_BUILD}_x64_${version}.tar.xz"}" ;;
+  win64-manual)
+    case "$FACTORIO_BUILD" in
+      alpha) : "${output_file:="Factorio_x64_${version}.zip"}"             ;;
+      demo)  : "${output_file:="FactorioDemo_x64_${version}.zip"}"         ;;
+      *)     __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10   ;;
+    esac ;;
+  win64)
+    case "$FACTORIO_BUILD" in
+      alpha) : "${output_file:="Setup_Factorio_x64_${version}.exe"}"       ;;
+      demo)  : "${output_file:="Setup_FactorioDemo_x64_${version}.exe"}"   ;;
+      *)     __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10   ;;
+    esac ;;
+  osx)
+    case "$FACTORIO_BUILD" in
+      alpha|demo)
+        : "${output_file:="factorio_${FACTORIO_BUILD}_${version}.dmg"}"    ;;
+      *) __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10       ;;
+    esac ;;
+  *) __die "Unknown target platform: $FACTORIO_TARGET" 5                   ;;
 esac
 
-FACTORIO_URL="https://www.factorio.com/get-download/${version}/alpha/${FACTORIO_TARGET}"
+FACTORIO_URL="https://www.factorio.com/get-download/${version}/${FACTORIO_BUILD}/${FACTORIO_TARGET}"
 
 curl -G --retry 10 --retry-delay 3 \
      --fail --location \
