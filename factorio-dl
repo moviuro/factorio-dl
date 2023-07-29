@@ -149,22 +149,22 @@ if [ -z "$FACTORIO_LOGIN" ]; then
 fi
 
 # If we didn't get the token from the player-data file, we try to get one from
-# the factorio-dl config file or from the factorio auth API
+# the factorio auth API
 # This is only needed for the alpha version
 if [ -z "$FACTORIO_TOKEN" ] && [ "${FACTORIO_BUILD}" = "alpha" ]; then
   __warn "No token in $FACTORIO_PD"
-  if [ -z "$FACTORIO_PASSWORD" ]; then
+  while [ -z "$FACTORIO_PASSWORD" ]; do
     if [ -z "$_interactive" ]; then
       __die "No password was set, aborting" 6
     else
       # We write a ~POSIX-compliant script; `read -s` doesn't work on e.g. FreeBSD
       stty -echo
-      printf "Password: "
+      printf "factorio.com password for $FACTORIO_LOGIN: "
       read -r FACTORIO_PASSWORD
       stty echo
       printf '\n'
     fi
-  fi
+  done
   _auth_url="https://auth.factorio.com/api-login?require_game_ownership=true"
   __warn "Trying to get one from $_auth_url"
   FACTORIO_TOKEN="$(curl --silent --fail -XPOST \
