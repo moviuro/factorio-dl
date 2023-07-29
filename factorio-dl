@@ -165,12 +165,20 @@ if [ -z "$FACTORIO_TOKEN" ] && [ "${FACTORIO_BUILD}" = "alpha" ]; then
       printf '\n'
     fi
   done
-  _auth_url="https://auth.factorio.com/api-login?require_game_ownership=true"
-  __warn "Trying to get one from $_auth_url"
-  FACTORIO_TOKEN="$(curl --silent --fail -XPOST \
-   "${_auth_url}&username=$FACTORIO_LOGIN&password=$FACTORIO_PASSWORD" |
-   jq -rc '.[]')"
-  if [ -z "$FACTORIO_TOKEN" ]; then
+  _auth_url="https://auth.factorio.com/api-login?require_game_ownership=true&username=$FACTORIO_LOGIN&password=$FACTORIO_PASSWORD"
+  __warn "Trying to get one from auth.factorio.com/api-login"
+  _auth_response="$(curl -XPOST "${_auth_url}")"
+  # a code was emailed to us
+  if [ "$(printf '%s\n' "$_auth_response" | jq -r .error 2>/dev/null)" = "email-authentication-required" ]; then
+    while [ -z "$FACTORIO_EMAIL_CODE" ]; do
+      printf 'Email auth code: '
+      read -r FACTORIO_EMAIL_CODE
+      printf '\n'
+    done
+    _auth_response="$(curl -XPOST \
+     "${_auth_url}&email_authentication_code=$FACTORIO_EMAIL_CODE")"
+  fi
+  if ! FACTORIO_TOKEN="$(printf '%s\n' "$_auth_response" | jq -re .[] 2>/dev/null)"; then
     __die "Didn't get a token using $FACTORIO_LOGIN and password" 7
   fi
 fi
