@@ -33,11 +33,7 @@ interaction from the user.
 
 -o output
   specify output file.
-  Default value, depending on the target:
-   - factorio_<build>_<version>.tar.xz
-   - factorio_<build>_<version>.dmg
-   - Setup_Factorio(Demo)?_x64_<version>.exe
-   - Factorio(Demo)?_x64_<version>.zip
+  By default, use the remote's suggested name.
 
 -l login -p password
   specify login and password values to supply at https://factorio.com/login
@@ -207,47 +203,48 @@ if ! printf '%s' "$version" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
 fi
 
 case "$FACTORIO_TARGET" in
-  linux64)
-    : "${output_file:="factorio_${FACTORIO_BUILD}_x64_${version}.tar.xz"}" ;;
+  linux64) : ;;
   win64-manual)
     case "$FACTORIO_BUILD" in
-      alpha) : "${output_file:="Factorio_x64_${version}.zip"}"             ;;
-      demo)  : "${output_file:="FactorioDemo_x64_${version}.zip"}"         ;;
-      expansion) : "${output_file:="factorio-expansion_win_x64_${version}.zip"}" ;;
-      *)     __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10   ;;
+      alpha|demo|expansion) : ;;
+      *) __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10 ;;
     esac ;;
   win64)
     case "$FACTORIO_BUILD" in
-      alpha) : "${output_file:="Setup_Factorio_x64_${version}.exe"}"       ;;
-      demo)  : "${output_file:="Setup_FactorioDemo_x64_${version}.exe"}"   ;;
-      expansion) : "${output_file:="Setup_FactorioSpaceAge_${version}.exe"}";;
-      *)     __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10   ;;
+      alpha|demo|expansion) : ;;
+      *) __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10 ;;
     esac ;;
   osx)
     case "$FACTORIO_BUILD" in
-      alpha|demo|expansion)
-        : "${output_file:="factorio_${FACTORIO_BUILD}_${version}.dmg"}"    ;;
-      *) __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10       ;;
+      alpha|demo|expansion) : ;;
+      *) __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10 ;;
     esac ;;
-  *) __die "Unknown target platform: $FACTORIO_TARGET" 5                   ;;
+  *) __die "Unknown target platform: $FACTORIO_TARGET" 5             ;;
 esac
 
 FACTORIO_URL="https://www.factorio.com/get-download/${version}/${FACTORIO_BUILD}/${FACTORIO_TARGET}"
-
-curl -G --retry 10 --retry-delay 3 \
-     --fail --location \
-     --continue-at - \
+# Get the effective URL so we can use it to name our local file the same as the
+# remote: https://stackoverflow.com/a/3077316
+EFFECTIVE_URL="$(curl --get --head --location \
      --data-urlencode "username=${FACTORIO_LOGIN}" \
      --data-urlencode "token=${FACTORIO_TOKEN}" \
-     --output "${output_file}.part" \
-     "${FACTORIO_URL}" \
-|| rm -f "${output_file}.part"
+     --output /dev/null \
+     --write-out "%{url_effective}" \
+     "${FACTORIO_URL}")"
 
-if [ ! -f "${output_file}.part" ]; then
-  __die "Download failed" 9
-fi
-
-if [ -f "${output_file}.part" ]; then
-  mv "${output_file}.part" "${output_file}"
+if [ -n "$output_file" ]; then
+  curl -G --retry 10 --retry-delay 3 \
+     --fail \
+     --continue-at - \
+     --output "${output_file}" \
+     "${EFFECTIVE_URL}"
+  exit $?
+else
+  curl -G --retry 10 --retry-delay 3 \
+     --fail \
+     --continue-at - \
+     --remote-name \
+     "${EFFECTIVE_URL}"
+  exit $?
 fi
 
