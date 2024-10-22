@@ -193,9 +193,9 @@ _latest_json="https://factorio.com/api/latest-releases"
 case "$version" in
   ""|experimental|stable)
     : "${version:="experimental"}"
-    __warn "Trying $_latest_json for $version, might be broken"
+    __warn "Trying $_latest_json for $version ($FACTORIO_BUILD), might be broken"
     version="$(curl -s "${_latest_json}" |
-     jq -rc ".$version.alpha"
+     jq -rc ".$version.$FACTORIO_BUILD"
     )"
     __warn "Got $version"
     ;;
