@@ -148,38 +148,42 @@ fi
 
 # If we didn't get the token from the player-data file, we try to get one from
 # the factorio auth API
-# This is only needed for the alpha version
-if [ -z "$FACTORIO_TOKEN" ] && [ "${FACTORIO_BUILD}" = "alpha" ]; then
-  __warn "No token in $FACTORIO_PD"
-  while [ -z "$FACTORIO_PASSWORD" ]; do
-    if [ -z "$_interactive" ]; then
-      __die "No password was set, aborting" 6
-    else
-      # We write a ~POSIX-compliant script; `read -s` doesn't work on e.g. FreeBSD
-      stty -echo
-      printf "factorio.com password for $FACTORIO_LOGIN: "
-      read -r FACTORIO_PASSWORD
-      stty echo
-      printf '\n'
+# This is only needed for the alpha or expansion versions
+case "$FACTORIO_BUILD" in
+  alpha|expansion)
+    if [ -z "$FACTORIO_TOKEN" ]; then
+      __warn "No token in $FACTORIO_PD"
+      while [ -z "$FACTORIO_PASSWORD" ]; do
+        if [ -z "$_interactive" ]; then
+          __die "No password was set, aborting" 6
+        else
+          # We write a ~POSIX-compliant script; `read -s` doesn't work on e.g. FreeBSD
+          stty -echo
+          printf "factorio.com password for $FACTORIO_LOGIN: "
+          read -r FACTORIO_PASSWORD
+          stty echo
+          printf '\n'
+        fi
+      done
+      _auth_url="https://auth.factorio.com/api-login?require_game_ownership=true&username=$FACTORIO_LOGIN&password=$FACTORIO_PASSWORD"
+      __warn "Trying to get one from auth.factorio.com/api-login"
+      _auth_response="$(curl -XPOST "${_auth_url}")"
+      # a code was emailed to us
+      if [ "$(printf '%s\n' "$_auth_response" | jq -r .error 2>/dev/null)" = "email-authentication-required" ]; then
+        while [ -z "$FACTORIO_EMAIL_CODE" ]; do
+          printf 'Email auth code: '
+          read -r FACTORIO_EMAIL_CODE
+          printf '\n'
+        done
+        _auth_response="$(curl -XPOST \
+         "${_auth_url}&email_authentication_code=$FACTORIO_EMAIL_CODE")"
+      fi
+      if ! FACTORIO_TOKEN="$(printf '%s\n' "$_auth_response" | jq -re .[] 2>/dev/null)"; then
+        __die "Didn't get a token using $FACTORIO_LOGIN and password" 7
+      fi
     fi
-  done
-  _auth_url="https://auth.factorio.com/api-login?require_game_ownership=true&username=$FACTORIO_LOGIN&password=$FACTORIO_PASSWORD"
-  __warn "Trying to get one from auth.factorio.com/api-login"
-  _auth_response="$(curl -XPOST "${_auth_url}")"
-  # a code was emailed to us
-  if [ "$(printf '%s\n' "$_auth_response" | jq -r .error 2>/dev/null)" = "email-authentication-required" ]; then
-    while [ -z "$FACTORIO_EMAIL_CODE" ]; do
-      printf 'Email auth code: '
-      read -r FACTORIO_EMAIL_CODE
-      printf '\n'
-    done
-    _auth_response="$(curl -XPOST \
-     "${_auth_url}&email_authentication_code=$FACTORIO_EMAIL_CODE")"
-  fi
-  if ! FACTORIO_TOKEN="$(printf '%s\n' "$_auth_response" | jq -re .[] 2>/dev/null)"; then
-    __die "Didn't get a token using $FACTORIO_LOGIN and password" 7
-  fi
-fi
+  ;;
+esac
 
 # We strip the ".*://" prefix of the argument.
 # It's needed because makepkg(1) will pass 'protocol://version' as $1
