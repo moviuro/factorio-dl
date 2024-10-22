@@ -59,11 +59,13 @@ interaction from the user.
   Display this help text.
 
 -b build
-  There are three builds:
+  There are four builds:
    - alpha (the default), which requires a valid login+password or player data
      file, the current standard full-featured build
    - demo, which is free as in free beer, publicly accessible demo versions
      (stable versions only)
+   - expansion, which includes the "Space Age" content. Same as "alpha", it
+     requires a valid login+password or player data file
    - headless, which is free as in free beer, for running servers on machines
      without graphical interface (linux64 version only, see -t)
 
@@ -72,8 +74,8 @@ version
     - a number such as 0.16.51 or 0.17.58;
     - experimental (the default)*
     - stable*
-  $0 supports the factorio:// prefix. This is meant to ease integration into
-  build scripts, such as PKGBUILD(5) on Archlinux. As such, the following
+  $0 supports any prefix that ends with '://'. This is meant to ease integration
+  into build scripts, such as PKGBUILD(5) on Archlinux. As such, the following
   commands are equivalent:
     % $0 0.16.51
     % $0 factorio://0.16.51
@@ -131,8 +133,8 @@ fi
 # Set the default build type
 : "${FACTORIO_BUILD:="alpha"}"
 case "$FACTORIO_BUILD" in
-  alpha|demo|headless) : ;;
-  *) __die "Supported builds: alpha, demo, headless; not $FACTORIO_BUILD" 4;;
+  alpha|demo|headless|expansion) : ;;
+  *) __die "Supported builds: alpha, demo, headless, expansion; not $FACTORIO_BUILD" 4;;
 esac
 
 # Grab the username and token from the player-data.json file
@@ -183,10 +185,10 @@ if [ -z "$FACTORIO_TOKEN" ] && [ "${FACTORIO_BUILD}" = "alpha" ]; then
   fi
 fi
 
-# We strip the "factorio://" prefix of the argument.
+# We strip the ".*://" prefix of the argument.
 # It's needed because makepkg(1) will pass 'protocol://version' as $1
 # Humans invoking the script can still use version alone as $1
-version="${1#"factorio://"}"
+version="${1##*://}"
 _latest_json="https://factorio.com/api/latest-releases"
 case "$version" in
   ""|experimental|stable)
@@ -211,17 +213,19 @@ case "$FACTORIO_TARGET" in
     case "$FACTORIO_BUILD" in
       alpha) : "${output_file:="Factorio_x64_${version}.zip"}"             ;;
       demo)  : "${output_file:="FactorioDemo_x64_${version}.zip"}"         ;;
+      expansion) : "${output_file:="factorio-expansion_win_x64_${version}.zip"}" ;;
       *)     __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10   ;;
     esac ;;
   win64)
     case "$FACTORIO_BUILD" in
       alpha) : "${output_file:="Setup_Factorio_x64_${version}.exe"}"       ;;
       demo)  : "${output_file:="Setup_FactorioDemo_x64_${version}.exe"}"   ;;
+      expansion) : "${output_file:="Setup_FactorioSpaceAge_${version}.exe"}";;
       *)     __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10   ;;
     esac ;;
   osx)
     case "$FACTORIO_BUILD" in
-      alpha|demo)
+      alpha|demo|expansion)
         : "${output_file:="factorio_${FACTORIO_BUILD}_${version}.dmg"}"    ;;
       *) __die "Does not exist: $FACTORIO_BUILD $FACTORIO_TARGET" 10       ;;
     esac ;;
